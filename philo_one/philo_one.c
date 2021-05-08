@@ -42,6 +42,18 @@ typedef struct			s_global
 	int					status_working;
 }						t_global;
 
+void		my_usleep(long time) 
+{
+	struct timeval	t1;
+	ssize_t			current_time;
+
+	while (time > (t1.tv_sec * 1000 + t1.tv_usec / 1000) - current_time)
+	{
+		gettimeofday(&t1, NULL);
+		usleep(100);
+	}
+}
+
 ssize_t		get_current_time()
 {
 	struct timeval	time;
@@ -102,15 +114,29 @@ int		fill_struct(char **argv, t_arguments *arguments)
 	return (WORK_IS_FINE);
 }
 
+// четные философы берут правыe, потом левые
+// нечетные философы берут левые, потом правые
+
 void	philosoph_eat(t_philosoph *philosoph) 
 {
-	pthread_mutex_lock(philosoph->left);
-	printf("Take LEFT fork %d!\n", philosoph->number);
-	pthread_mutex_lock(philosoph->right);
-	printf("Take RIGHT fork %d!\n", philosoph->number);
-	printf("Philosoph number: %d, eat!\n", philosoph->number);
-	usleep(philosoph->time_to_eat * 1000);
-	philosoph->time_life -= philosoph->time_to_sleep * 1000;
+	if ((philosoph->number % 2) == 0) // четные
+	{
+		pthread_mutex_lock(philosoph->right);
+		printf("Take RIGHT fork %d!\n", philosoph->number);
+		pthread_mutex_lock(philosoph->left);
+		printf("Take LEFT fork %d!\n", philosoph->number);
+		printf("Philosoph number: %d, eat!\n", philosoph->number);
+	}
+	else // нечетные
+	{
+		pthread_mutex_lock(philosoph->left);
+		printf("Take LEFT fork %d!\n", philosoph->number);
+		printf("Philosoph number: %d, eat!\n", philosoph->number);
+		pthread_mutex_lock(philosoph->right);
+		printf("Take RIGHT fork %d!\n", philosoph->number);
+	}
+	my_usleep(philosoph->time_to_eat);
+	philosoph->time_life = philosoph->time_to_sleep * 1000;
 	pthread_mutex_unlock(philosoph->left);
 	printf("Give LEFT fork %d!\n", philosoph->number);
 	pthread_mutex_unlock(philosoph->right);
@@ -120,7 +146,7 @@ void	philosoph_eat(t_philosoph *philosoph)
 void	philosoph_sleep(t_philosoph *philosoph) 
 {
 	printf("%d\n", philosoph->time_to_sleep);
-	usleep(philosoph->time_to_sleep * 1000);
+	my_usleep(philosoph->time_to_sleep);
 	philosoph->time_life += philosoph->time_to_sleep * 1000;
 }
 
@@ -153,26 +179,28 @@ void	fill_settings_philosopher(t_global *global, t_philosoph *philosopher)
 	philosopher->time_to_sleep = global->arguments->time_to_sleep;
 }
 
-void	check_status_philosoph(void *global) 
-{
-	int status_philosoph;
-	int i;
+// void	*check_status_philosoph(void *global) 
+// {
+// 	int status_philosoph;
+// 	int i;
 
-	status_philosoph = WORK_IS_FINE;
-	i = 0;
-	while (1)
-	{
-		while (i < (*(t_global *)global).arguments->quantity_philosophers)
-		{
-			if ((*(t_global *)global).philosophers[i].time_life > (*(t_global *)global).arguments->time_to_die)
-			{
-				(*(t_global *)global).status_working = ERROR_PHILOSOPH_DIE;
-				return ;
-			}
-			i = 0;
-		}
-	}
-}
+// 	status_philosoph = WORK_IS_FINE;
+// 	i = 0;
+// 	while (1)
+// 	{
+// 		while (i < (*(t_global *)global).arguments->quantity_philosophers)
+// 		{
+// 			if ((*(t_global *)global).philosophers[i].time_life > (*(t_global *)global).arguments->time_to_die)
+// 			{
+// 				(*(t_global *)global).status_working = ERROR_PHILOSOPH_DIE;
+// 				return (NULL);
+// 			}
+// 			i = 0;
+// 		}
+// 	}
+// 	return (NULL);
+// }
+
 
 int	philosopher_start(t_global *global)
 {
@@ -192,7 +220,7 @@ int	philosopher_start(t_global *global)
 	i = 0;
 	// ресаю философов
 	global->philosophers = malloc(sizeof(t_philosoph) * global->arguments->quantity_philosophers);
-	pthread_create(&watching, NULL, check_status_philosoph, (void *)global);
+	// pthread_create(&watching, NULL, check_status_philosoph, (void *)global);
 	while (i < global->arguments->quantity_philosophers)
 	{
 		global->philosophers[i].number = i;
