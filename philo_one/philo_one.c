@@ -30,7 +30,7 @@ typedef struct		s_philosoph
 	int				time_to_sleep;
 	int				number;
 	ssize_t			time_life;
-	ssize_t			start_programm_time;
+	ssize_t			spawn_time;
 }					t_philosoph;
 
 typedef struct			s_global
@@ -47,6 +47,8 @@ void		my_usleep(long time)
 	struct timeval	t1;
 	ssize_t			current_time;
 
+	gettimeofday(&t1, NULL);
+	current_time = (t1.tv_sec * 1000 + t1.tv_usec / 1000);
 	while (time > (t1.tv_sec * 1000 + t1.tv_usec / 1000) - current_time)
 	{
 		gettimeofday(&t1, NULL);
@@ -136,7 +138,7 @@ void	philosoph_eat(t_philosoph *philosoph)
 		printf("Take RIGHT fork %d!\n", philosoph->number);
 	}
 	my_usleep(philosoph->time_to_eat);
-	philosoph->time_life = philosoph->time_to_sleep * 1000;
+	philosoph->time_life -= (philosoph->time_to_eat);
 	pthread_mutex_unlock(philosoph->left);
 	printf("Give LEFT fork %d!\n", philosoph->number);
 	pthread_mutex_unlock(philosoph->right);
@@ -164,7 +166,7 @@ void	*proccess_philosopher(void *philosopher)
 	gettimeofday(&t1, NULL);
 	while (1)
 	{
-		(*(t_philosoph *)philosopher).time_life = time_life_philosoph((*(t_philosoph *)philosopher).start_programm_time);
+		(*(t_philosoph *)philosopher).time_life = time_life_philosoph((*(t_philosoph *)philosopher).spawn_time);
 		// printf("%zd\n", (*(t_philosoph *)philosopher).time_life);
 		philosoph_eat((t_philosoph *)philosopher);
 		philosoph_sleep((t_philosoph *)philosopher);
@@ -226,7 +228,7 @@ int	philosopher_start(t_global *global)
 		global->philosophers[i].number = i;
 		global->philosophers[i].left = &global->mutexs[i];
 		global->philosophers[i].right = &global->mutexs[(i + 1) % global->arguments->quantity_philosophers];
-		global->philosophers[i].start_programm_time = global->start_programm_time;
+		global->philosophers[i].spawn_time = get_current_time();
 		fill_settings_philosopher(global, &global->philosophers[i]);
 		pthread_create(&threads[i], NULL, proccess_philosopher, (void *)(&global->philosophers[i]));
 		i++;
