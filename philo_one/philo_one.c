@@ -34,6 +34,7 @@ typedef struct		s_philosoph
 	ssize_t			time_life;
 	ssize_t			spawn_time;
 	pthread_mutex_t *write_in_chat;
+	ssize_t			start_programm_time;
 }					t_philosoph;
 
 typedef struct			s_global
@@ -46,15 +47,15 @@ typedef struct			s_global
 	pthread_mutex_t 	*write_in_chat;
 }						t_global;
 
-ssize_t		get_current_time()
-{
-	struct timeval	time;
-	ssize_t			time_start;
+// ssize_t		get_current_time()
+// {
+// 	struct timeval	time;
+// 	ssize_t			time_start;
 
-	gettimeofday(&time, NULL);
-	time_start = ((time.tv_sec * 1000) + (time.tv_usec / 1000));
-	return (time_start);
-}
+// 	gettimeofday(&time, NULL);
+// 	time_start = ((time.tv_sec * 1000) + (time.tv_usec / 1000));
+// 	return (time_start);
+// }
 
 void		my_usleep(long time) 
 {
@@ -62,7 +63,7 @@ void		my_usleep(long time)
 	ssize_t			current_time;
 
 	gettimeofday(&t1, NULL);
-	current_time = get_current_time();
+	current_time = (t1.tv_sec * 1000) + (t1.tv_usec / 1000);
 	while (time > (t1.tv_sec * 1000 + t1.tv_usec / 1000) - current_time)
 	{
 		gettimeofday(&t1, NULL);
@@ -71,13 +72,14 @@ void		my_usleep(long time)
 }
 
 
-ssize_t		time_life_philosoph(ssize_t start_time) 
+ssize_t		time_life_philosoph(ssize_t time) 
 {
-	struct timeval	time;
+	struct timeval	current_time;
 	ssize_t			time_start;
 
-	gettimeofday(&time, NULL);
-	time_start = ((time.tv_sec * 1000) + (time.tv_usec / 1000)) - start_time;
+	gettimeofday(&current_time, NULL);
+	//							преобразование в миллисекунды
+	time_start = ((current_time.tv_sec * 1000) + (current_time.tv_usec / 1000)) - time;
 	return (time_start);
 }
 
@@ -125,74 +127,87 @@ int		fill_struct(char **argv, t_arguments *arguments)
 // четные философы берут правыe, потом левые
 // нечетные философы берут левые, потом правые
 
-void	philosoph_eat(t_philosoph *philosoph) 
+void	take_fork(t_philosoph *philosoph, int number) 
 {
-	pthread_mutex_lock(philosoph->write_in_chat);
-	if ((philosoph->number % 2) == 0) // четные
+	if ((number % 2) == 0)
 	{
 		pthread_mutex_lock(philosoph->right);
-		printf("Take RIGHT fork %d!\n", philosoph->number);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Take RIGHT fork %d!\n", time_life_philosoph(philosoph->start_programm_time), number);
+		pthread_mutex_unlock(philosoph->write_in_chat);
 		pthread_mutex_lock(philosoph->left);
-		printf("Take LEFT fork %d!\n", philosoph->number);
-		printf("Philosoph number: %d, eat!\n", philosoph->number);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Take LEFT fork %d!\n", time_life_philosoph(philosoph->start_programm_time), number);
+		pthread_mutex_unlock(philosoph->write_in_chat);
+	}
+	else 
+	{
+		pthread_mutex_lock(philosoph->left);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Take LEFT fork %d!\n", time_life_philosoph(philosoph->start_programm_time), number);
+		pthread_mutex_unlock(philosoph->write_in_chat);
+		pthread_mutex_lock(philosoph->right);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Take RIGHT fork %d!\n", time_life_philosoph(philosoph->start_programm_time), number);
+		pthread_mutex_unlock(philosoph->write_in_chat);
+	}
+}
+
+void	philosoph_eat(t_philosoph *philosoph) 
+{
+	if ((philosoph->number % 2) == 0) // четные
+	{
+		// take_fork(philosoph, philosoph->number);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Philosoph number: %d, eat!\n", time_life_philosoph(philosoph->start_programm_time), philosoph->number);
+		philosoph->time_life = time_life_philosoph(0);//(philosoph->time_to_eat);
+		pthread_mutex_unlock(philosoph->write_in_chat);
+		my_usleep(philosoph->time_to_eat);
+		pthread_mutex_unlock(philosoph->right);
+		pthread_mutex_unlock(philosoph->left);
 	}
 	else // нечетные
 	{
-		pthread_mutex_lock(philosoph->left);
-		// pthread_mutex_lock(&philosoph->write_in_chat);
-		printf("Take LEFT fork %d!\n", philosoph->number);
-		printf("Philosoph number: %d, eat!\n", philosoph->number);
-		pthread_mutex_lock(philosoph->right);
-		printf("Take RIGHT fork %d!\n", philosoph->number);
+		// take_fork(philosoph, philosoph->number);
+		pthread_mutex_lock(philosoph->write_in_chat);
+		printf("time %zu, Philosoph number: %d, eat!\n", time_life_philosoph(philosoph->start_programm_time), philosoph->number);
+		philosoph->time_life = time_life_philosoph(0);//(philosoph->time_to_eat);
+		pthread_mutex_unlock(philosoph->write_in_chat);
+		my_usleep(philosoph->time_to_eat);
+		pthread_mutex_unlock(philosoph->left);
+		pthread_mutex_unlock(philosoph->right);
 	}
-	pthread_mutex_unlock(philosoph->write_in_chat);
-	my_usleep(philosoph->time_to_eat);
-	philosoph->time_life = time_life_philosoph(0);//(philosoph->time_to_eat);
-	pthread_mutex_unlock(philosoph->left);
-	printf("Give LEFT fork %d!\n", philosoph->number);
-	pthread_mutex_unlock(philosoph->right);
-	printf("Give RIGHT fork %d!\n", philosoph->number);
 }
 
 void	philosoph_sleep(t_philosoph *philosoph) 
 {
 	pthread_mutex_lock(philosoph->write_in_chat);
-	// printf("%d\n", philosoph->time_to_sleep);
-	printf("Philosoph %d sleep\n", philosoph->number);
-	pthread_mutex_unlock(philosoph->write_in_chat);
+	printf("time %zu, Philosoph %d sleep\n", time_life_philosoph(philosoph->start_programm_time), philosoph->number);
 	my_usleep(philosoph->time_to_sleep);
-	// philosoph->time_life += philosoph->time_to_sleep * 1000;
+	pthread_mutex_unlock(philosoph->write_in_chat);
 }
 
 void	philosoph_thinking(t_philosoph *philosoph)
 {
 	pthread_mutex_lock(philosoph->write_in_chat);
-	printf("Philosoph %d thinking\n", philosoph->number);
-	// printf("%d\n", philosoph->time_to_sleep);
+	printf("time %zu, Philosoph %d thinking\n", time_life_philosoph(philosoph->start_programm_time), philosoph->number);
 	pthread_mutex_unlock(philosoph->write_in_chat);
 }
-
-// void	philosoph_die(t_philosoph *philosoph) 
-// {
-
-// }
 
 //							  Конкретный философ
 void	*proccess_philosopher(void *philosopher)
 {
 	// printf("%d\n", (*(t_philosoph *)philosopher).time_to_sleep);
-	struct timeval t1;
-
-	gettimeofday(&t1, NULL);
+	// printf("number = %d\n", (*(t_philosoph *)philosopher).number);
 	while (1)
 	{
-		(*(t_philosoph *)philosopher).time_life = time_life_philosoph((*(t_philosoph *)philosopher).spawn_time);
+		// (*(t_philosoph *)philosopher).time_life = time_life_philosoph((*(t_philosoph *)philosopher).spawn_time);
 		// printf("%zd\n", (*(t_philosoph *)philosopher).time_life);
+		take_fork((t_philosoph *)philosopher, (*(t_philosoph *)philosopher).number);
 		philosoph_eat((t_philosoph *)philosopher);
 		philosoph_sleep((t_philosoph *)philosopher);
 		philosoph_thinking((t_philosoph *)philosopher);
 		// if ((*(t_philosoph *)philosopher).time_life >= (*(t_philosoph *)philosopher).time_to_die)
-
 	}
 	return (NULL);
 }
@@ -207,7 +222,7 @@ void	fill_settings_philosopher(t_global *global, t_philosoph *philosopher)
 void	*watcher(void *global)
 {
 	int i;
-	int time_to_die;
+	ssize_t time_to_die;
 	int count_eat;
 	int number_gorged_philosophers;
 
@@ -219,20 +234,41 @@ void	*watcher(void *global)
 	{
 		while (i < (*(t_global *)global).arguments->quantity_philosophers)
 		{
-			if ((*(t_global *)global).philosophers[i].time_life > time_to_die)
+			// printf("SUKA = %zu\n", time_life_philosoph((*(t_global *)global).philosophers[i].time_life));
+			// if (/*(*(t_global *)global).philosophers[i].time_life*/time_life_philosoph((*(t_global *)global).philosophers[i].time_life) > time_to_die)
+			// {
+			// 	pthread_mutex_lock((*(t_global *)global).write_in_chat);
+			// 	printf("%zd > %zd\n", time_life_philosoph((*(t_global *)global).philosophers[i].time_life)/*(*(t_global *)global).philosophers[i].time_life*/, time_to_die);
+			// 	printf("SUCK MY DICK!\n");
+			// 	// (*(t_global *)global).status_working = ERROR_PHILOSOPH_DIE;
+			// 	printf("time %zu, Philosoph %d die\n", time_life_philosoph((*(t_global *)global).start_programm_time), i);//(*(t_global *)global).philosophers[i].number);
+			// 	return (NULL);
+			// }
+			// struct timeval	time;
+		
+			// gettimeofday(&time, NULL);
+			// printf("MILISEC: %zu\n", milisec);
+			// printf("MILISEC = %zu\n", milisec);
+			ssize_t milisec = time_life_philosoph(0);//(*(t_global *)global).philosophers[i].time_life - (*(t_global *)global).start_programm_time;
+			if (/*milisec > time_to_die*/(*(t_global *)global).arguments->time_to_die < milisec - (*(t_global *)global).philosophers[i].time_life)
 			{
-				(*(t_global *)global).status_working = ERROR_PHILOSOPH_DIE;
 				pthread_mutex_lock((*(t_global *)global).write_in_chat);
-				printf("Philosoph %d die\n", (*(t_global *)global).philosophers[i].number);
+				printf("%zd > %zd\n", milisec - (*(t_global *)global).philosophers[i].time_life/*(*(t_global *)global).philosophers[i].time_life*/, time_to_die);
+				printf("SUCK MY DICK!\n");
+				// (*(t_global *)global).status_working = ERROR_PHILOSOPH_DIE;
+				printf("time %zu, Philosoph %d die\n", time_life_philosoph((*(t_global *)global).start_programm_time), i);//(*(t_global *)global).philosophers[i].number);
 				return (NULL);
+				// printf("SUKA: %zd\n", ((time.tv_sec * 1000) + (time.tv_usec / 1000)) - (*(t_global *)global).start_programm_time);
+				// exit(1);
 			}
 			if (count_eat != -1)
 			{
 				if (number_gorged_philosophers == (*(t_global *)global).arguments->quantity_philosophers)
 				{
-					(*(t_global *)global).status_working = ERROR_PHILOSOPHERS_ATE;
 					pthread_mutex_lock((*(t_global *)global).write_in_chat);
-					printf("Philosoph %d die\n", (*(t_global *)global).philosophers[i].number);
+					printf("SUCK MY BOOLS!\n");
+					// (*(t_global *)global).status_working = ERROR_PHILOSOPHERS_ATE;
+					printf("time %zu, Philosoph %d die\n", time_life_philosoph((*(t_global *)global).start_programm_time), i);//(*(t_global *)global).philosophers[i].number);
 					return (NULL);
 				}
 			}
@@ -273,31 +309,36 @@ int	philosopher_start(t_global *global)
 	i = 0;
 	while (i < global->arguments->quantity_philosophers)
 	{
+		// usleep(300);
+		printf("i = %d\n", i);
 		global->philosophers[i].number = i;
 		global->philosophers[i].left = &global->mutexs[i];
 		global->philosophers[i].right = &global->mutexs[(i + 1) % global->arguments->quantity_philosophers];
-		global->philosophers[i].spawn_time = get_current_time();
+		global->philosophers[i].spawn_time = global->start_programm_time;//time_life_philosoph(0);
+		global->philosophers[i].time_life = global->start_programm_time;//time_life_philosoph(0);
+		global->philosophers[i].start_programm_time = global->start_programm_time;
 		fill_settings_philosopher(global, &global->philosophers[i]);
 		pthread_create(&threads[i], NULL, proccess_philosopher, (void *)(&global->philosophers[i]));
 		i++;
+		usleep(200);
 	}
 	pthread_create(&watching, NULL, watcher, (void *)global);
 	i = 0;
-	void *ptr;
-	int error = pthread_join(watching, &ptr/*NULL*/);
-	if (ptr != NULL)
-	{
+	// if (ptr != NULL)
+	// {
 			// printf("Error!!!!\n");
 		// exit(1);
-		while (i < global->arguments->quantity_philosophers)
-		{
-			// pthread_join(threads[i], NULL);
-			i++;
-		}
-	}
+		// while (i < global->arguments->quantity_philosophers)
+		// {
+		// 	// pthread_join(threads[i], NULL);
+		// 	// i++;
+		// }
+	// }
+	pthread_join(watching, NULL);
 	// if (global->status_working == ERROR_PHILOSOPH_DIE || global->status_working == ERROR_PHILOSOPHERS_ATE)
 	// 	return (1);
 	// pthread_mutex_destroy(&global->write_in_chat);
+	return (0);
 }
 
 int		main(int argc, char **argv)
@@ -319,7 +360,7 @@ int		main(int argc, char **argv)
 			error("Error: arguments not fine!");
 		else
 		{
-			global.start_programm_time = get_current_time();
+			global.start_programm_time = time_life_philosoph(0);
 			check_status = philosopher_start(&global);
 		}
 	// }
