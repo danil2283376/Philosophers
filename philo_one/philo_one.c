@@ -167,6 +167,7 @@ void    philosoph_eating(t_philosoph *philosoph)
 	{
 		pthread_mutex_lock(philosoph->write_in_chat);
 		printf("time %zu, Philosoph number: %d, eat!\n", get_time(philosoph->start_programm_time), philosoph->number);
+		// ЗАМЕДЛЯЕТ ЖУТКО РАБОТУ!!!
 		++philosoph->count_eat;
 		philosoph->time_life = get_time(0);
 		pthread_mutex_unlock(philosoph->write_in_chat);
@@ -178,6 +179,7 @@ void    philosoph_eating(t_philosoph *philosoph)
 	{
 		pthread_mutex_lock(philosoph->write_in_chat);
 		printf("time %zu, Philosoph number: %d, eat!\n", get_time(philosoph->start_programm_time), philosoph->number);
+		// ЗАМЕДЛЯЕТ ЖУТКО РАБОТУ!!!
 		++philosoph->count_eat;
 		philosoph->time_life = get_time(0);//(philosoph->time_to_eat);
 		pthread_mutex_unlock(philosoph->write_in_chat);
@@ -290,10 +292,13 @@ void    philosopher_start(t_global *global)
 		value_philosoph(global, i, chat, philosophs);
 		pthread_create(&philosophs[i], NULL, proccess_philosoph, (void *)(&global->philosophers[i]));
 		++i;
-		my_usleep(100);
 	}
 	pthread_create(&watcher, NULL, watcher_proccess, (void *)global);
 	pthread_join(watcher, NULL);
+	pthread_detach(watcher);
+	free(philosophs);
+	free(global->philosophers);
+	free(global->mutexs);
 }
 
 int		main(int argc, char **argv)
