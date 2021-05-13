@@ -257,6 +257,9 @@ void    philosopher_start(t_global *global)
     }
     pthread_create(&watcher, NULL, watcher_proccess, (void *)global);
     pthread_join(watcher, NULL);
+    free(philosophs);
+    free(global->philosophers);
+    free(global->semaphors);
 }
 
 int main(int argc, char **argv)
