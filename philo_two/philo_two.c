@@ -39,6 +39,8 @@ typedef struct		s_philosoph
     sem_t           *semaphors;
     sem_t           *waiter;
     sem_t           *security;
+    int             quantity_philo_start;
+    int             quantity_philosoph;
 }					t_philosoph;
 
 typedef struct			s_global
@@ -119,24 +121,25 @@ int		fill_struct(int argc, char **argv, t_arguments *arguments)
 }
 #pragma endregion
 
-void    philosoph_eat(t_philosoph *philosoph) 
+void    philosoph_eat(t_philosoph *philosoph, int number) 
 {
     sem_wait(philosoph->waiter);
     sem_wait(philosoph->semaphors);
     sem_wait(philosoph->write_in_chat);
-    printf("time %zu, Take RIGHT fork %d!\n", get_time(philosoph->start_programm_time), philosoph->number);
+    printf("time %zu, Take RIGHT fork %d!\n", get_time(philosoph->start_programm_time), number);
     sem_post(philosoph->write_in_chat);
     sem_wait(philosoph->semaphors);
     sem_wait(philosoph->write_in_chat);
-    printf("time %zu, Take LEFT fork %d!\n", get_time(philosoph->start_programm_time), philosoph->number);
+    printf("time %zu, Take LEFT fork %d!\n", get_time(philosoph->start_programm_time), number);
     sem_post(philosoph->waiter);
     sem_post(philosoph->write_in_chat);
     sem_wait(philosoph->write_in_chat);
-    printf("time %zu, Philosoph number: %d, eat!\n", get_time(philosoph->start_programm_time), philosoph->number);
+    printf("time %zu, Philosoph number: %d, eat!\n", get_time(philosoph->start_programm_time), number);
     ++philosoph->count_eat;
+    philosoph->time_life = get_time(0);
     // printf("time_life: %zu\n", get_time(philosoph->time_life));
     sem_post(philosoph->write_in_chat);
-    philosoph->time_life = get_time(0);
+    // printf("time_life: %zu\n", get_time(philosoph->time_life));
     my_usleep(philosoph->time_to_eat);
     sem_post(philosoph->semaphors);
     sem_post(philosoph->semaphors);
@@ -161,16 +164,16 @@ void    *proccess_philosoph(void *philosoph)
 {
     pthread_detach((*(t_philosoph *)philosoph).name_thread);
     t_philosoph *copy_philosoph;
-
     copy_philosoph = (t_philosoph *)philosoph;
+    sem_wait(copy_philosoph->security);
     copy_philosoph->time_life = get_time(0);
-    printf("\ntime_life: %zu\n", get_time(copy_philosoph->time_life));
+    sem_post(copy_philosoph->security);
+    // printf("\ntime_life: %zu\n", get_time(copy_philosoph->time_life));
     while (1)
     {
-        philosoph_eat(copy_philosoph);
+        philosoph_eat(copy_philosoph, copy_philosoph->number);
         philosoph_sleep(copy_philosoph);
         philosoph_thinking(copy_philosoph);
-        sem_post(copy_philosoph->security);
         // printf("time_life: %zu\n", get_time(copy_philosoph->time_life));
     }
 }
@@ -186,6 +189,7 @@ void	value_philosoph(t_global *global, int i, sem_t *chat, pthread_t *philosophs
 	global->philosophers[i].write_in_chat = chat;
 	global->philosophers[i].name_thread = philosophs[i];
     global->philosophers[i].waiter = global->waiter;
+    global->philosophers[i].security = global->security;
     global->philosophers[i].count_eat = 0;
     global->philosophers[i].security = global->security;
 }
@@ -205,6 +209,7 @@ void	*watcher_proccess(void *global)
     {
         while (i < copy_global->arguments->quantity_philosophers)
         {
+            i = 0;
             if (copy_global->arguments->time_to_die < get_time(copy_global->philosophers[i].time_life))
             {
                 sem_wait(copy_global->write_in_chat);
@@ -241,26 +246,17 @@ void    philosopher_start(t_global *global)
     sem_unlink("/waiter");
     global->security = sem_open("/security", O_CREAT, 0666, 1);
     sem_unlink("/security");
-    // printf("HELL\n");
     if (global->semaphors == NULL || global->write_in_chat == NULL || global->waiter == NULL || global->security == NULL)
         return ;
     i = 0;
     while (i < global->arguments->quantity_philosophers)
     {
-        sem_wait(global->security);
         value_philosoph(global, i, global->write_in_chat, philosophs);
         pthread_create(&philosophs[i], NULL, proccess_philosoph, (void *)(&global->philosophers[i]));
         ++i;
     }
     pthread_create(&watcher, NULL, watcher_proccess, (void *)global);
     pthread_join(watcher, NULL);
-    // i = 0;
-    // while (i < global->arguments->quantity_philosophers) 
-    // {
-    //     pthread_join(philosophs[i], NULL);
-    //     i++;
-    // }
-    // write(1, "HUI\n", 4);
 }
 
 int main(int argc, char **argv)
