@@ -30,15 +30,12 @@ typedef struct		s_philosoph
 	int				time_to_die;
 	int				time_to_eat;
 	int				time_to_sleep;
-	int				number;
 	int				count_eat;
+	int				number;
 	ssize_t			time_life;
 	sem_t           *write_in_chat;
 	ssize_t			start_programm_time;
-	pthread_t		name_thread;
     sem_t           *semaphors;
-    sem_t           *waiter;
-    sem_t           *security;
     int             quantity_philo_start;
     int             quantity_philosoph;
 }					t_philosoph;
@@ -46,14 +43,11 @@ typedef struct		s_philosoph
 typedef struct			s_global
 {
 	t_arguments			*arguments;
-	t_philosoph			*philosophers;
     sem_t               *semaphors;
 	ssize_t				start_programm_time;
 	int					status_working;
 	sem_t               *write_in_chat;
 	int 				optional_varible;
-    sem_t               *waiter;
-    sem_t               *security;
 }						t_global;
 #pragma endregion
 
@@ -121,24 +115,97 @@ int		fill_struct(int argc, char **argv, t_arguments *arguments)
 }
 #pragma endregion
 
-void	value_philosoph(t_global *global, int i, sem_t *chat) 
+void	value_philosoph(t_global *global, t_philosoph *philosoph, int number) 
 {
-	global->philosophers[i].time_to_die = global->arguments->time_to_die;
-	global->philosophers[i].time_to_eat = global->arguments->time_to_eat;
-	global->philosophers[i].time_to_sleep = global->arguments->time_to_sleep;
-	global->philosophers[i].number = i;
-	global->philosophers[i].time_life = global->start_programm_time;
-	global->philosophers[i].start_programm_time = global->start_programm_time;
-	global->philosophers[i].write_in_chat = chat;
-    global->philosophers[i].waiter = global->waiter;
-    global->philosophers[i].security = global->security;
-    global->philosophers[i].count_eat = 0;
-    global->philosophers[i].security = global->security;
+	philosoph->start_programm_time = global->start_programm_time;
+	philosoph->write_in_chat = global->write_in_chat;
+	philosoph->time_to_die = global->arguments->time_to_die;
+	philosoph->time_to_eat = global->arguments->time_to_eat;
+	philosoph->time_to_sleep = global->arguments->time_to_sleep;
+	philosoph->semaphors = global->semaphors;
+	philosoph->number = number;
 }
 
-void    philosopher_start(t_global *global)
+void	philosoph_eat(t_philosoph *philosoph, int number)
 {
-    global->philosophers = malloc(sizeof(t_philosoph) * global->arguments->quantity_philosophers);
+	sem_wait(philosoph->semaphors);
+	sem_wait(philosoph->write_in_chat);
+	printf("time %zu, Take RIGHT fork %d!\n", get_time(philosoph->start_programm_time), number);
+	sem_post(philosoph->write_in_chat);
+	sem_wait(philosoph->semaphors);
+	sem_wait(philosoph->write_in_chat);
+    printf("time %zu, Take LEFT fork %d!\n", get_time(philosoph->start_programm_time), number);
+	sem_post(philosoph->write_in_chat);
+    sem_wait(philosoph->write_in_chat);
+    printf("time %zu, Philosoph number: %d, eat!\n", get_time(philosoph->start_programm_time), number);
+	++philosoph->count_eat;
+    philosoph->time_life = get_time(0);
+	sem_post(philosoph->write_in_chat);
+	my_usleep(philosoph->time_to_eat);
+	// printf("EATING %d")
+	sem_post(philosoph->semaphors);
+    sem_post(philosoph->semaphors);
+}
+
+void	philosoph_sleep(t_philosoph *philosoph, int number)
+{
+	sem_wait(philosoph->write_in_chat);
+	printf("time %zu, Philosoph number %d sleeping!\n", get_time(philosoph->start_programm_time), number);
+	sem_post(philosoph->write_in_chat);
+    my_usleep(philosoph->time_to_sleep);
+}
+
+void	philosoph_thinking(t_philosoph *philosoph, int number)
+{
+	sem_wait(philosoph->write_in_chat);
+    printf("time %zu, Philosoph number %d thinking!\n", get_time(philosoph->start_programm_time), number);
+    sem_post(philosoph->write_in_chat);
+}
+
+void	*start_philosoph(void *philosoph) 
+{
+    t_philosoph *copy_philosoph;
+    copy_philosoph = (t_philosoph *)philosoph;
+    copy_philosoph->time_life = get_time(0);
+    while (1)
+    {
+        philosoph_eat(copy_philosoph, copy_philosoph->number);
+        philosoph_sleep(copy_philosoph, copy_philosoph->number);
+        philosoph_thinking(copy_philosoph, copy_philosoph->number);
+    }
+	return (NULL);
+}
+
+void	*check_life(void *philosoph)
+{
+	while (1)
+	{
+
+	}
+	return (NULL);
+}
+
+void	*check_count_eat(void *philosoph) 
+{
+	return (NULL);
+}
+
+void	philosopher_start(t_global *global, int number)
+{
+	t_philosoph philosoph;
+	pthread_t t_check_life = malloc(sizeof(pthread_t) * 1);
+	pthread_t t_check_count_eat = malloc(sizeof(pthread_t) * 1);
+	pthread_t thread_philosoph = malloc(sizeof(pthread_t) * 1);
+
+	value_philosoph(global, &philosoph, number);
+	pthread_create(&thread_philosoph, NULL, start_philosoph, (void *)&philosoph);
+	pthread_create(&t_check_life, NULL, check_life, (void *)&philosoph);
+	pthread_create(&t_check_count_eat, NULL, check_count_eat, (void *)&philosoph);
+	pthread_join(t_check_life, NULL);
+}
+
+void    create_philosopher(t_global *global)
+{
     global->semaphors = sem_open("/semaphors", O_CREAT, 0666, global->arguments->quantity_philosophers);
     sem_unlink("/semaphors");
     pid_t *philosophs = malloc(sizeof(pid_t) * global->arguments->quantity_philosophers);
@@ -147,11 +214,27 @@ void    philosopher_start(t_global *global)
     int i;
 
     i = 0;
+	global->write_in_chat = chat;
     while (i < global->arguments->quantity_philosophers)
     {
-        value_philosoph(global, i, chat);
-        fork();
+		philosophs[i] = fork();
+		if (philosophs[i] == 0)
+		{
+			philosopher_start(global, i);
+			break ;
+		}
+		else
+			i++;
     }
+	int error;
+	int status;
+
+	i = 0;
+	while (i < global->arguments->quantity_philosophers)
+	{
+		waitpid(philosophs[i], &error, status);
+		i++;
+	}
 }
 
 int main(int argc, char **argv)
@@ -178,7 +261,7 @@ int main(int argc, char **argv)
 			return (error("Error: arguments not fine!"));
 		else
 		{
-			philosopher_start(&global);
+			create_philosopher(&global);
 		}
 	}
 }
