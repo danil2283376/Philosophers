@@ -16,6 +16,7 @@ clean:
 	rm -rf $(NAME)
 
 fclean: clean
+		rm *.gch
 
 norm:
 	norminette $(SRC)
