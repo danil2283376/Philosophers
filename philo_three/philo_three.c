@@ -42,6 +42,7 @@ typedef struct		s_philosoph
 	int				nbr_of_times_each_philo_must_eat;
 	int				five_argument_exist;
 	sem_t			*ones_die;
+	sem_t			*defender;
 	pid_t			*other_philosoph;
 	int				count_philosophs;
 }					t_philosoph;
@@ -54,8 +55,9 @@ typedef struct			s_global
 	int					status_working;
 	sem_t               *write_in_chat;
 	int 				optional_varible;
-	sem_t				*ones_die;
 	pid_t				*philosoph_pid;
+	sem_t				*ones_die;
+	sem_t				*defender;
 }						t_global;
 #pragma endregion
 
@@ -138,6 +140,7 @@ void	value_philosoph(t_global *global, t_philosoph *philosoph, int number)
 	philosoph->other_philosoph = global->philosoph_pid;
 	philosoph->count_philosophs = global->arguments->quantity_philosophers;
 	philosoph->time_life = global->start_programm_time;//get_time(0);
+	philosoph->defender = global->defender;
 }
 
 void	philosoph_eat(t_philosoph *philosoph, int number)
@@ -198,22 +201,16 @@ void	*check_life(void *philosoph)
 	while (1)
 	{
 		usleep(copy_philosoph->time_to_die / 4);
-		// printf("time_to_die: %d < %zd\n", copy_philosoph->time_to_die, get_time(copy_philosoph->time_life));
 		if (copy_philosoph->time_to_die < get_time(copy_philosoph->time_life))
 		{
-			// printf("AAAAAA\n");
-			// sem_wait(copy_philosoph->write_in_chat);
-			printf("time_to_die: %d < %zd\n", copy_philosoph->time_to_die, get_time(copy_philosoph->time_life));
+			printf("time %zu, Philosoph %d die\n", get_time(copy_philosoph->start_programm_time), copy_philosoph->number);
 			int i;
 
-			// i = 0;
-			// printf("time %zu, Philosoph %d die\n", get_time(copy_philosoph->start_programm_time), copy_philosoph->number);
 			while (i < copy_philosoph->count_philosophs)
 			{
 				kill(copy_philosoph->other_philosoph[i], 2);
 				i++;
 			}
-			// exit(1);
 		}
 	}
 	return (NULL);
@@ -221,17 +218,23 @@ void	*check_life(void *philosoph)
 
 void	*check_count_eat(void *philosoph) 
 {
+	int i;
 	t_philosoph *copy_philosoph;
 
 	copy_philosoph = (t_philosoph *)philosoph;
+
+	i = 0;
 	if (copy_philosoph->five_argument_exist == 1)
 	{
 		while (1)
 		{
 			if (copy_philosoph->count_eat > copy_philosoph->nbr_of_times_each_philo_must_eat)
 			{
-				printf("%d > %d\n", copy_philosoph->count_eat, copy_philosoph->nbr_of_times_each_philo_must_eat);
-				printf("COACAT\n");
+				while (i < copy_philosoph->count_philosophs)
+				{
+					kill(copy_philosoph->other_philosoph[i], 2);
+					i++;
+				}
 				exit(0);
 			}
 		}
@@ -262,6 +265,8 @@ void    create_philosopher(t_global *global)
     sem_unlink("/chat");
 	global->ones_die = sem_open("/ones_die", O_CREAT, 0666, 1);
 	sem_unlink("/ones_die");
+	global->defender = sem_open("/defender", O_CREAT, 0666, 1);
+	sem_unlink("/defender");
     int i;
 
     i = 0;
@@ -270,16 +275,14 @@ void    create_philosopher(t_global *global)
     {
 		global->philosoph_pid[i] = fork();
 		if (global->philosoph_pid[i] == 0)
-		{
 			philosopher_start(global, i);
-			break ;
-		}
 		else
+		{
 			i++;
+		}
     }
 	int error;
 	int status;
-
 	i = 0;
 	while (i < global->arguments->quantity_philosophers)
 	{
