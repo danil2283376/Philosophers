@@ -1,20 +1,7 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   ft_atoi.c                                          :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: scolen <scolen@student.42.fr>              +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2020/10/30 19:01:31 by scolen            #+#    #+#             */
-/*   Updated: 2021/05/20 09:53:46 by scolen           ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
 
-// #include "libft.h"
-
-static int					ft_check_minus(const char *s)
+static int	ft_check_minus(const char *s)
 {
-	unsigned int i;
+	unsigned int	i;
 
 	i = 0;
 	while ((s[i] < '0' || s[i] > '9') && s[i] != '+' && s[i] != '-')
@@ -60,7 +47,7 @@ static unsigned long long	ft_input_integer(const char *s, unsigned int l)
 	return (number);
 }
 
-static long int				f(int s, char *str, unsigned int l)
+static long int	f(int s, char *str, unsigned int l)
 {
 	char				symbol;
 	unsigned long long	n;
@@ -88,7 +75,7 @@ static long int				f(int s, char *str, unsigned int l)
 	return (n);
 }
 
-int							ft_atoi(const char *str)
+int	ft_atoi(const char *str)
 {
 	int				start;
 	unsigned int	length_number;

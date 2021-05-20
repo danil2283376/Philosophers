@@ -1,6 +1,6 @@
 #include "philo_one.h"
 
-int		check_count_eat(int j, t_global	*copy_global)
+int	check_count_eat(int j, t_global	*copy_global)
 {
 	if ((j == copy_global->arguments->quantity_philosophers) \
 		&& copy_global->optional_varible)
@@ -11,7 +11,7 @@ int		check_count_eat(int j, t_global	*copy_global)
 	return (WORK_IS_FINE);
 }
 
-int		check_life_philosoph(int i, t_global	*copy_global)
+int	check_life_philosoph(int i, t_global	*copy_global)
 {
 	if (copy_global->arguments->time_to_die < \
 		get_time(copy_global->philosophers[i].time_life))
